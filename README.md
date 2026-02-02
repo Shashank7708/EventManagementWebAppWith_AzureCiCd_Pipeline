@@ -143,25 +143,9 @@ variables:
 
 ### Setting Up the Pipeline
 
-**1. Azure Prerequisites**
-```bash
-# Create Resource Groups
-az group create --name rg-event-mgmt-dev --location eastus
-az group create --name rg-event-mgmt-uat --location eastus
-az group create --name rg-event-mgmt-prod --location eastus
 
-# Create App Service Plans
-az appservice plan create --name plan-event-dev --resource-group rg-event-mgmt-dev --sku B1
-az appservice plan create --name plan-event-uat --resource-group rg-event-mgmt-uat --sku B2
-az appservice plan create --name plan-event-prod --resource-group rg-event-mgmt-prod --sku P1V2
 
-# Create App Services for each environment
-az webapp create --resource-group rg-event-mgmt-dev --plan plan-event-dev --name event-mgmt-api-dev
-az webapp create --resource-group rg-event-mgmt-uat --plan plan-event-uat --name event-mgmt-api-uat
-az webapp create --resource-group rg-event-mgmt-prod --plan plan-event-prod --name event-mgmt-api-prod
-```
-
-**2. SonarQube Setup**
+**1. SonarQube Setup**
 
 **Option A: SonarCloud (Recommended)**
 ```bash
@@ -179,7 +163,7 @@ az container create --resource-group rg-sonarqube \
   --ports 9000 --cpu 2 --memory 4
 ```
 
-**3. Azure DevOps Configuration**
+**2. Azure DevOps Configuration**
 
 **Service Connections:**
 - Navigate to Project Settings → Service Connections
@@ -188,48 +172,13 @@ az container create --resource-group rg-sonarqube \
   - Server URL: `https://sonarcloud.io` or your SonarQube server URL
   - Token: Your SonarQube authentication token
 
-**4. Pipeline Setup**
+**3. Pipeline Setup**
 - Navigate to Azure DevOps → Pipelines → New Pipeline
 - Select GitHub repository
 - Use existing YAML file: `Azure DevOps PipelineFor .NETWebApi.yml`
 - Configure pipeline variables (see table below)
 - Save and run
 
-**5. Required Pipeline Variables**
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| **Azure Configuration** |
-| `azureSubscription` | Azure service connection | `Azure-Production-Connection` |
-| `devWebAppName` | Dev App Service name | `event-mgmt-api-dev` |
-| `uatWebAppName` | UAT App Service name | `event-mgmt-api-uat` |
-| `prodWebAppName` | Production App Service name | `event-mgmt-api-prod` |
-| `devResourceGroup` | Dev resource group | `rg-event-mgmt-dev` |
-| `uatResourceGroup` | UAT resource group | `rg-event-mgmt-uat` |
-| `prodResourceGroup` | Production resource group | `rg-event-mgmt-prod` |
-| **SonarQube Configuration** |
-| `sonarQubeServiceConnection` | SonarQube connection name | `SonarQube-Connection` |
-| `sonarQubeProjectKey` | Project key in SonarQube | `event-management-app` |
-| `sonarQubeProjectName` | Project display name | `Event Management Web App` |
-| **Build Configuration** |
-| `buildConfiguration` | Build mode | `Release` |
-
-**6. Branch Protection Rules**
-
-Configure branch policies in Azure DevOps:
-
-```yaml
-# For 'uat' branch:
-- Require pull request reviews (min 1 approver)
-- Require build validation (pipeline must pass)
-- Require SonarQube quality gate pass
-
-# For 'main' branch:
-- Require pull request reviews (min 2 approvers)
-- Require build validation (pipeline must pass)
-- Require SonarQube quality gate pass
-- Require manual deployment approval
-```
 
 ### Deployment Strategy
 
@@ -311,78 +260,6 @@ Feature Branch
 - Deployment tracking and audit logs
 - Performance monitoring and alerts
 - Real-time pipeline status updates
-
-## Configuration
-
-### Backend Configuration
-
-**Development (`appsettings.Development.json`):**
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=dev-sql.database.windows.net;Database=EventBooking_Dev;..."
-  },
-  "AllowedHosts": "*",
-  "Cors": {
-    "Origins": ["http://localhost:4200", "https://dev-app.azurewebsites.net"]
-  }
-}
-```
-
-**UAT (`appsettings.UAT.json`):**
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=uat-sql.database.windows.net;Database=EventBooking_UAT;..."
-  },
-  "AllowedHosts": "*",
-  "Cors": {
-    "Origins": ["https://uat-app.azurewebsites.net"]
-  }
-}
-```
-
-**Production (`appsettings.Production.json`):**
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=prod-sql.database.windows.net;Database=EventBooking;..."
-  },
-  "AllowedHosts": "*",
-  "Cors": {
-    "Origins": ["https://app.azurewebsites.net"]
-  }
-}
-```
-
-### Frontend Configuration
-
-**Development (`environment.ts`):**
-```typescript
-export const environment = {
-  production: false,
-  apiUrl: 'http://localhost:5000/api',
-  environmentName: 'Development'
-};
-```
-
-**UAT (`environment.uat.ts`):**
-```typescript
-export const environment = {
-  production: false,
-  apiUrl: 'https://event-mgmt-api-uat.azurewebsites.net/api',
-  environmentName: 'UAT'
-};
-```
-
-**Production (`environment.prod.ts`):**
-```typescript
-export const environment = {
-  production: true,
-  apiUrl: 'https://event-mgmt-api-prod.azurewebsites.net/api',
-  environmentName: 'Production'
-};
-```
 
 ### SonarQube Configuration
 
@@ -597,23 +474,7 @@ dotnet sonarscanner end
 
 
 
-### Setting Up the Pipeline
 
-**1. Azure Prerequisites**
-```bash
-# Create App Service
-az webapp create --resource-group <rg-name> --plan <plan-name> --name <app-name>
-
-# Create Service Connection in Azure DevOps
-# Settings > Service Connections > New > Azure Resource Manager
-```
-
-**2. Pipeline Setup**
-- Navigate to Azure DevOps → Pipelines → New Pipeline
-- Select GitHub repository
-- Use existing YAML file: `Azure DevOps PipelineFor .NETWebApi.yml`
-- Configure pipeline variables
-- Save and run
 
 
 ### Deployment Strategy
@@ -630,94 +491,10 @@ Development → Staging → Production
   Auto Deploy  Manual Gate  Manual Gate
 ```
 
-## CI/CD Features
 
-✅ **Continuous Integration**
-- Automated builds on every commit
-- Unit and integration testing
-- Code quality gates
-- Build artifact generation
-
-✅ **Continuous Deployment**
-- Automated deployment to Azure
-- Environment-specific configurations
-- Deployment slots for staging
-- Automated rollback capabilities
-
-✅ **Infrastructure as Code**
-- YAML-based pipeline definition
-- Version-controlled CI/CD configuration
-- Reusable pipeline templates
-
-✅ **Monitoring & Feedback**
-- Application Insights integration
-- Build status notifications
-- Deployment tracking
-- Performance monitoring
-
-## Configuration
-
-**Backend (`appsettings.json`):**
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=<server>;Database=EventBooking;..."
-  },
-  "AllowedHosts": "*"
-}
-```
-
-**Frontend (`environment.prod.ts`):**
-```typescript
-export const environment = {
-  production: true,
-  apiUrl: 'https://your-api.azurewebsites.net/api'
-};
-```
-
-## Monitoring & Observability
-
-- **Application Insights:** Performance monitoring and diagnostics
-- **Azure Monitor:** Infrastructure metrics and alerts
-- **Build Reports:** Test results and code coverage
-- **Deployment History:** Track all releases and rollbacks
-
-## Best Practices Implemented
-
-🔧 **DevOps:**
-- Infrastructure as Code (YAML pipelines)
-- Automated testing at every stage
-- Environment parity (Dev/Staging/Prod)
-- Secret management with Azure Key Vault
-
-🔒 **Security:**
-- Secure service connections
-- Environment-specific secrets
-- Role-based access control (RBAC)
-- Automated security scanning
-
-📊 **Quality:**
-- Code review process via pull requests
-- Automated code quality checks
-- Test coverage requirements
-- Branch protection policies
-
-## Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/new-feature`)
-3. Commit changes (`git commit -m 'Add feature'`)
-4. Push to branch (`git push origin feature/new-feature`)
-5. Open Pull Request (triggers CI pipeline)
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file
 
 ## Contact
 
 **Shashank** - [@Shashank7708](https://github.com/Shashank7708)
 
 ---
-
-⚡ **Pipeline Status:** [![Build Status](badge-url)](pipeline-url)
