@@ -1,0 +1,158 @@
+# ASP.NET
+# Build and test ASP.NET projects.
+# Add steps that publish symbols, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/apps/aspnet/build-aspnet-4
+
+trigger:
+  branches:
+    include:
+      - main
+      - UAT
+      - Dev
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+  artifactName: 'drop'
+
+  sonarCloudConnection: 'SonarQube'
+  sonarOrganization: 'shetyeshashankir'
+  sonarProjectKey: 'shetyeshashankir_AzureDevOpsTutorial'
+  sonarProjectName: 'AzureDevOpsTutorial'
+
+stages:
+  - stage: Build
+    displayName: 'BuildStage'
+    jobs:
+      - job: Build
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          - task: NuGetToolInstaller@1
+            displayName: 'Install Nuget'
+
+          - task: NuGetCommand@2
+            displayName: 'Restore Nuget Packages'
+            inputs:
+              command: 'restore'
+              restoreSolution: '**/*.sln'
+
+              
+          - task: SonarCloudPrepare@4
+            displayName: 'Prepare SonarCloud Analysis'
+            inputs:
+              SonarCloud: $(sonarCloudConnection)
+              organization: $(sonarOrganization)
+              scannerMode: 'dotnet'
+              projectKey: $(sonarProjectKey)
+              projectName: $(sonarProjectName)
+              
+          - task: DotNetCoreCLI@2
+            displayName: 'Build .NET Project'
+            inputs:
+              command: 'build'
+              projects: '**/*.csproj'
+              arguments: '--configuration $(buildConfiguration)'
+
+          - task: SonarCloudAnalyze@4
+            displayName: 'Run SonarCloud Analysis'
+
+          - task: SonarCloudPublish@4
+            displayName: 'Publish SonarCloud Quality Gate'
+            inputs:
+              pollingTimeoutSec: '300'
+          
+          
+          # Test
+
+#          - task: DotNetCoreCLI@2
+#            displayName: 'Test .NET Project'
+#            inputs:
+#              command: 'test'
+#              projects: '**/*Tests/*cs.proj'
+#              arguments: '--configuration $(buildConfiguration) --no-build'
+
+          # Publish Artifacts
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish'
+            inputs:
+              command: 'publish'
+              publishWebProjects: true
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+              zipAfterPublish: true
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish Artifacts'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'drop'
+              publishLocation: Container
+
+#      - job: Deploy
+#        displayName: 'Deploy'
+#        dependsOn: Build
+#        steps:
+#          - download: current
+#            artifact: drop
+
+#          - task: AzureWebApp@1
+#            displayName: 'Deploy to Azure Web App'
+#            inputs:
+#              azureSubscription: 'Azure subscription 1(7a6ce642-cb04-4bc3-98de-c9197b4cd5f5)'
+#              appType: 'webAppLinux'
+#              appName: 'eventmgmtWebApp'
+#              package: '$(Pipeline.Workspace)/$(artifactName)/**/*.zip'
+              
+  - stage: DeployToUAT
+    displayName: 'DeployToUAT'
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/UAT') )
+    jobs:
+      - deployment: DeployToUAT
+        displayName:  'Deploy to Azure App Service - UAT'
+        environment: 'UAT'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to Azure Web App UAT'
+                  inputs:
+                    azureSubscription: 'Azure subscription 1(7a6ce642-cb04-4bc3-98de-c9197b4cd5f5)'
+                    appType: 'webAppLinux'
+                    appName: 'eventmgmtWebApp'
+                    package: '$(Pipeline.Workspace)/$(artifactName)/**/*.zip'
+
+  - stage: DeployToProd
+    displayName: 'DeployToProd'
+    dependsOn: Build
+    condition: and (succeeded() , eq(variables['Bui;d.SourceBranch'],'refs/heads/main'))
+    jobs:
+      - deployment: DeployToProd
+        displayName:  'Deploy to Azure App Service - Main'
+        environment: 'UAT'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to Azure Web App UAT'
+                  inputs:
+                    azureSubscription: 'Azure subscription 1(7a6ce642-cb04-4bc3-98de-c9197b4cd5f5)'
+                    appType: 'webAppLinux'
+                    appName: 'eventmgmtWebApp'
+                    package: '$(Pipeline.Workspace)/$(artifactName)/**/*.zip'
+                    
+
+
